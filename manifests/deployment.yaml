@@ -1,0 +1,24 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: helloworld-grpc
+  name: helloworld-grpc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: helloworld-grpc
+  template:
+    metadata:
+      labels:
+        app: helloworld-grpc
+    spec:
+      containers:
+      - image: gcr.io/jkwng-gke-mci/helloworld-grpc:latest
+        imagePullPolicy: Always
+        name: helloworld
+        ports:
+        - containerPort: 50051
+          protocol: TCP
+          name: grpc

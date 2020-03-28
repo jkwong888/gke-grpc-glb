@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    cloud.google.com/neg: '{"exposed_ports": {"50051":{}}}'
+    cloud.google.com/app-protocols: '{"grpc":"HTTP2"}'
+  labels:
+    app: helloworld-grpc
+  name: helloworld-grpc
+spec:
+  ports:
+  - port: 50051 
+    protocol: TCP
+    targetPort: 50051
+    name: grpc
+  selector:
+    app: helloworld-grpc
