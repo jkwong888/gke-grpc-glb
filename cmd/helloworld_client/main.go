@@ -22,8 +22,8 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"flag"
 	"log"
-	"os"
 	"time"
 
 	pb "helloworld/rpc/helloworld"
@@ -34,28 +34,46 @@ import (
 )
 
 const (
-	defaultAddress     = "localhost:50051"
-	defaultName = "world"
+	defaultAddress = "localhost:50051"
+	defaultName    = "world"
 )
 
 func main() {
 	name := defaultName
 	address := defaultAddress
-	if len(os.Args) > 1 {
-		address = os.Args[1]
+
+	connecttls := flag.Bool("tls", true, "connect over TLS")
+	verifytls := flag.Bool("verifytls", true, "verify TLS")
+
+	flag.Parse()
+
+	args := flag.Args()
+
+	if len(args) > 1 {
+		address = args[0]
 	}
-	
-	if len(os.Args) > 2 {
-		name = os.Args[2]
+
+	if len(args) > 2 {
+		name = args[1]
 	}
 
 	log.Printf("Connecting to %v as %s", address, name)
 	// Set up a connection to the server.
 
-	config := &tls.Config{
-		InsecureSkipVerify: true,
+	grpcOptions := make([]grpc.DialOption, 0)
+
+	if *connecttls {
+		log.Printf("Connecting over TLS ...")
+		config := &tls.Config{
+			InsecureSkipVerify: !*verifytls,
+		}
+		grpcOptions = append(grpcOptions, grpc.WithTransportCredentials(credentials.NewTLS(config)))
+	} else {
+		grpcOptions = append(grpcOptions, grpc.WithInsecure())
 	}
-	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(credentials.NewTLS(config)))
+
+	conn, err := grpc.Dial(address, grpcOptions...)
+
 	//conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)

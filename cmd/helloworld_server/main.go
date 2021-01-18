@@ -128,7 +128,6 @@ func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloRe
 }
 
 func main() {
-
 	tls := flag.Bool("tls", false, "listen on TLS")
 
 	flag.Parse()
@@ -138,16 +137,18 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	s := grpc.NewServer()
+	grpcOptions := make([]grpc.ServerOption, 0)
 	if *tls {
 		log.Printf("Listening on TLS")
-		creds, err := credentials.NewServerTLSFromFile("certs/service.pem", "certs/service.key")
+		creds, err := credentials.NewServerTLSFromFile("certs/tls.crt", "certs/tls.key")
 		if err != nil {
 			log.Fatalf("Failed to setup TLS: %v", err)
 		}
 
-		s = grpc.NewServer(grpc.Creds(creds))
+		grpcOptions = append(grpcOptions, grpc.Creds(creds))
 	}
+
+	s := grpc.NewServer(grpcOptions...)
 
 	pb.RegisterGreeterServer(s, &server{})
 
