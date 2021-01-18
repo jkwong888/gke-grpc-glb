@@ -23,12 +23,19 @@ package main
 
 import (
 	"context"
+	"flag"
+	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
+	"os"
 
+	pb "helloworld/rpc/helloworld"
+
+	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	pb "helloworld/rpc/helloworld"
+	"google.golang.org/grpc/peer"
 )
 
 const (
@@ -37,26 +44,110 @@ const (
 
 // server is used to implement helloworld.GreeterServer.
 type server struct {
-	pb.UnimplementedGreeterServer
+	pb.GreeterServer
+}
+
+func getMetaData(ctx context.Context, path string) *string {
+	metaDataURL := "http://metadata/computeMetadata/v1/"
+	req, _ := http.NewRequest(
+		"GET",
+		metaDataURL+path,
+		nil,
+	)
+	req.Header.Add("Metadata-Flavor", "Google")
+	req = req.WithContext(ctx)
+	code, body := makeRequest(req)
+
+	if code == 200 {
+		bodyStr := string(body)
+		return &bodyStr
+	}
+
+	return nil
+}
+
+func makeRequest(r *http.Request) (int, []byte) {
+	//transport := http.Transport{DisableKeepAlives: true}
+	//octr := &ochttp.Transport{}
+	//client := &http.Client{Transport: octr}
+	client := &http.Client{}
+	resp, err := client.Do(r)
+	if err != nil {
+		message := "Unable to call backend: " + err.Error()
+		panic(message)
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		message := "Unable to read response body: " + err.Error()
+		panic(message)
+	}
+
+	return resp.StatusCode, body
 }
 
 // SayHello implements helloworld.GreeterServer
 func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
-	log.Printf("Received: %v", in.GetName())
-	return &pb.HelloReply{Message: "Hello " + in.GetName()}, nil
+	p, _ := peer.FromContext(ctx)
+	frontendip := p.Addr.String()
+	log.Printf("Received request from %v: %v", frontendip, proto.MarshalTextString(in))
+
+	host, _ := os.Hostname()
+	zoneStr := getMetaData(ctx, "instance/zone")
+	nodeName := getMetaData(ctx, "instance/hostname")
+	region := getMetaData(ctx, "instance/attributes/cluster-location")
+	clusterName := getMetaData(ctx, "instance/attributes/cluster-name")
+	project := getMetaData(ctx, "project/project-id")
+
+	result := &pb.HelloReply{
+		Message:  "Hello " + in.GetName(),
+		Version:  "v2.0.0",
+		Hostname: host,
+	}
+
+	if zoneStr != nil {
+		result.Zone = *zoneStr
+	}
+
+	if nodeName != nil {
+		result.Nodename = *nodeName
+	}
+
+	if region != nil {
+		result.Region = *region
+	}
+
+	if clusterName != nil {
+		result.Clustername = *clusterName
+	}
+
+	if project != nil {
+		result.Project = *project
+	}
+
+	return result, nil
 }
 
 func main() {
-	creds, err := credentials.NewServerTLSFromFile("certs/service.pem", "certs/service.key")
-	if err != nil {
-		log.Fatalf("Failed to setup TLS: %v", err)
-	}
+
+	tls := flag.Bool("tls", false, "listen on TLS")
+
+	flag.Parse()
 
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	s := grpc.NewServer(grpc.Creds(creds))
+
+	s := grpc.NewServer()
+	if *tls {
+		log.Printf("Listening on TLS")
+		creds, err := credentials.NewServerTLSFromFile("certs/service.pem", "certs/service.key")
+		if err != nil {
+			log.Fatalf("Failed to setup TLS: %v", err)
+		}
+
+		s = grpc.NewServer(grpc.Creds(creds))
+	}
 
 	pb.RegisterGreeterServer(s, &server{})
 

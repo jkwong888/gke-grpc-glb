@@ -3,14 +3,13 @@
 
 package helloworld
 
+import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
+
 import (
-	context "context"
-	fmt "fmt"
-	proto "github.com/golang/protobuf/proto"
+	context "golang.org/x/net/context"
 	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
-	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -22,7 +21,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // The request message containing the user's name.
 type HelloRequest struct {
@@ -36,17 +35,16 @@ func (m *HelloRequest) Reset()         { *m = HelloRequest{} }
 func (m *HelloRequest) String() string { return proto.CompactTextString(m) }
 func (*HelloRequest) ProtoMessage()    {}
 func (*HelloRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_17b8c58d586b62f2, []int{0}
+	return fileDescriptor_helloworld_4f6c16ca37bdba31, []int{0}
 }
-
 func (m *HelloRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HelloRequest.Unmarshal(m, b)
 }
 func (m *HelloRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HelloRequest.Marshal(b, m, deterministic)
 }
-func (m *HelloRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HelloRequest.Merge(m, src)
+func (dst *HelloRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HelloRequest.Merge(dst, src)
 }
 func (m *HelloRequest) XXX_Size() int {
 	return xxx_messageInfo_HelloRequest.Size(m)
@@ -67,6 +65,13 @@ func (m *HelloRequest) GetName() string {
 // The response message containing the greetings
 type HelloReply struct {
 	Message              string   `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	Version              string   `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	Hostname             string   `protobuf:"bytes,3,opt,name=hostname,proto3" json:"hostname,omitempty"`
+	Nodename             string   `protobuf:"bytes,4,opt,name=nodename,proto3" json:"nodename,omitempty"`
+	Clustername          string   `protobuf:"bytes,5,opt,name=clustername,proto3" json:"clustername,omitempty"`
+	Region               string   `protobuf:"bytes,6,opt,name=region,proto3" json:"region,omitempty"`
+	Zone                 string   `protobuf:"bytes,7,opt,name=zone,proto3" json:"zone,omitempty"`
+	Project              string   `protobuf:"bytes,8,opt,name=project,proto3" json:"project,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -76,17 +81,16 @@ func (m *HelloReply) Reset()         { *m = HelloReply{} }
 func (m *HelloReply) String() string { return proto.CompactTextString(m) }
 func (*HelloReply) ProtoMessage()    {}
 func (*HelloReply) Descriptor() ([]byte, []int) {
-	return fileDescriptor_17b8c58d586b62f2, []int{1}
+	return fileDescriptor_helloworld_4f6c16ca37bdba31, []int{1}
 }
-
 func (m *HelloReply) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HelloReply.Unmarshal(m, b)
 }
 func (m *HelloReply) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_HelloReply.Marshal(b, m, deterministic)
 }
-func (m *HelloReply) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HelloReply.Merge(m, src)
+func (dst *HelloReply) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HelloReply.Merge(dst, src)
 }
 func (m *HelloReply) XXX_Size() int {
 	return xxx_messageInfo_HelloReply.Size(m)
@@ -104,38 +108,67 @@ func (m *HelloReply) GetMessage() string {
 	return ""
 }
 
+func (m *HelloReply) GetVersion() string {
+	if m != nil {
+		return m.Version
+	}
+	return ""
+}
+
+func (m *HelloReply) GetHostname() string {
+	if m != nil {
+		return m.Hostname
+	}
+	return ""
+}
+
+func (m *HelloReply) GetNodename() string {
+	if m != nil {
+		return m.Nodename
+	}
+	return ""
+}
+
+func (m *HelloReply) GetClustername() string {
+	if m != nil {
+		return m.Clustername
+	}
+	return ""
+}
+
+func (m *HelloReply) GetRegion() string {
+	if m != nil {
+		return m.Region
+	}
+	return ""
+}
+
+func (m *HelloReply) GetZone() string {
+	if m != nil {
+		return m.Zone
+	}
+	return ""
+}
+
+func (m *HelloReply) GetProject() string {
+	if m != nil {
+		return m.Project
+	}
+	return ""
+}
+
 func init() {
 	proto.RegisterType((*HelloRequest)(nil), "helloworld.HelloRequest")
 	proto.RegisterType((*HelloReply)(nil), "helloworld.HelloReply")
 }
 
-func init() {
-	proto.RegisterFile("helloworld.proto", fileDescriptor_17b8c58d586b62f2)
-}
-
-var fileDescriptor_17b8c58d586b62f2 = []byte{
-	// 179 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0xc8, 0x48, 0xcd, 0xc9,
-	0xc9, 0x2f, 0xcf, 0x2f, 0xca, 0x49, 0xd1, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x42, 0x88,
-	0x28, 0x29, 0x71, 0xf1, 0x78, 0x80, 0x78, 0x41, 0xa9, 0x85, 0xa5, 0xa9, 0xc5, 0x25, 0x42, 0x42,
-	0x5c, 0x2c, 0x79, 0x89, 0xb9, 0xa9, 0x12, 0x8c, 0x0a, 0x8c, 0x1a, 0x9c, 0x41, 0x60, 0xb6, 0x92,
-	0x1a, 0x17, 0x17, 0x54, 0x4d, 0x41, 0x4e, 0xa5, 0x90, 0x04, 0x17, 0x7b, 0x6e, 0x6a, 0x71, 0x71,
-	0x62, 0x3a, 0x4c, 0x11, 0x8c, 0x6b, 0xe4, 0xc9, 0xc5, 0xee, 0x5e, 0x94, 0x9a, 0x5a, 0x92, 0x5a,
-	0x24, 0x64, 0xc7, 0xc5, 0x11, 0x9c, 0x58, 0x09, 0xd6, 0x25, 0x24, 0xa1, 0x87, 0xe4, 0x02, 0x64,
-	0xcb, 0xa4, 0xc4, 0xb0, 0xc8, 0x14, 0xe4, 0x54, 0x2a, 0x31, 0x38, 0xd9, 0x70, 0x49, 0x67, 0xe6,
-	0xeb, 0xa5, 0x17, 0x15, 0x24, 0xeb, 0xa5, 0x56, 0x24, 0xe6, 0x16, 0xe4, 0xa4, 0x16, 0x23, 0xa9,
-	0x75, 0xe2, 0x07, 0x2b, 0x0e, 0x07, 0xb1, 0x03, 0x40, 0x5e, 0x0a, 0x60, 0x8c, 0x42, 0xf2, 0x54,
-	0x12, 0x1b, 0xd8, 0x9f, 0xc6, 0x80, 0x00, 0x00, 0x00, 0xff, 0xff, 0x32, 0x5a, 0x2d, 0xc2, 0xfb,
-	0x00, 0x00, 0x00,
-}
-
 // Reference imports to suppress errors if they are not otherwise used.
 var _ context.Context
-var _ grpc.ClientConnInterface
+var _ grpc.ClientConn
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion6
+const _ = grpc.SupportPackageIsVersion4
 
 // GreeterClient is the client API for Greeter service.
 //
@@ -146,10 +179,10 @@ type GreeterClient interface {
 }
 
 type greeterClient struct {
-	cc grpc.ClientConnInterface
+	cc *grpc.ClientConn
 }
 
-func NewGreeterClient(cc grpc.ClientConnInterface) GreeterClient {
+func NewGreeterClient(cc *grpc.ClientConn) GreeterClient {
 	return &greeterClient{cc}
 }
 
@@ -166,14 +199,6 @@ func (c *greeterClient) SayHello(ctx context.Context, in *HelloRequest, opts ...
 type GreeterServer interface {
 	// Sends a greeting
 	SayHello(context.Context, *HelloRequest) (*HelloReply, error)
-}
-
-// UnimplementedGreeterServer can be embedded to have forward compatible implementations.
-type UnimplementedGreeterServer struct {
-}
-
-func (*UnimplementedGreeterServer) SayHello(ctx context.Context, req *HelloRequest) (*HelloReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SayHello not implemented")
 }
 
 func RegisterGreeterServer(s *grpc.Server, srv GreeterServer) {
@@ -209,4 +234,27 @@ var _Greeter_serviceDesc = grpc.ServiceDesc{
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "helloworld.proto",
+}
+
+func init() { proto.RegisterFile("helloworld.proto", fileDescriptor_helloworld_4f6c16ca37bdba31) }
+
+var fileDescriptor_helloworld_4f6c16ca37bdba31 = []byte{
+	// 268 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x91, 0xbf, 0x4e, 0xc3, 0x30,
+	0x10, 0x87, 0x09, 0x94, 0x24, 0x1c, 0x48, 0x20, 0x0f, 0x95, 0x55, 0x96, 0x2a, 0x13, 0x53, 0x06,
+	0x58, 0x11, 0x43, 0x17, 0x60, 0xab, 0xca, 0x80, 0xc4, 0x16, 0xd2, 0x53, 0x5a, 0xe4, 0xe4, 0x8c,
+	0xed, 0x02, 0xe1, 0x69, 0x79, 0x14, 0x74, 0x97, 0x04, 0x32, 0x74, 0xbb, 0xcf, 0xdf, 0x4f, 0xc9,
+	0xfd, 0x81, 0x8b, 0x0d, 0x1a, 0x43, 0x9f, 0xe4, 0xcc, 0x3a, 0xb7, 0x8e, 0x02, 0x29, 0xf8, 0x7f,
+	0xc9, 0x32, 0x38, 0x7b, 0x60, 0x5a, 0xe1, 0xfb, 0x0e, 0x7d, 0x50, 0x0a, 0x26, 0x4d, 0x51, 0xa3,
+	0x8e, 0xe6, 0xd1, 0xd5, 0xc9, 0x4a, 0xea, 0xec, 0x27, 0x02, 0xe8, 0x43, 0xd6, 0xb4, 0x4a, 0x43,
+	0x52, 0xa3, 0xf7, 0x45, 0x35, 0xa4, 0x06, 0x64, 0xf3, 0x81, 0xce, 0x6f, 0xa9, 0xd1, 0x87, 0x9d,
+	0xe9, 0x51, 0xcd, 0x20, 0xdd, 0x90, 0x0f, 0xf2, 0xe9, 0x23, 0x51, 0x7f, 0xcc, 0xae, 0xa1, 0x35,
+	0x8a, 0x9b, 0x74, 0x6e, 0x60, 0x35, 0x87, 0xd3, 0xd2, 0xec, 0x7c, 0x40, 0x27, 0xfa, 0x58, 0xf4,
+	0xf8, 0x49, 0x4d, 0x21, 0x76, 0x58, 0xf1, 0x2f, 0x63, 0x91, 0x3d, 0xf1, 0x20, 0xdf, 0xd4, 0xa0,
+	0x4e, 0xba, 0x41, 0xb8, 0xe6, 0xfe, 0xac, 0xa3, 0x37, 0x2c, 0x83, 0x4e, 0xbb, 0xfe, 0x7a, 0xbc,
+	0x7e, 0x84, 0xe4, 0xde, 0x21, 0x06, 0x74, 0xea, 0x0e, 0xd2, 0xa7, 0xa2, 0x95, 0x79, 0x95, 0xce,
+	0x47, 0xcb, 0x1b, 0xef, 0x69, 0x36, 0xdd, 0x63, 0xac, 0x69, 0xb3, 0x83, 0xc5, 0x2d, 0x5c, 0x6e,
+	0x29, 0xaf, 0x9c, 0x2d, 0x73, 0xfc, 0x2a, 0x6a, 0x6b, 0xd0, 0x8f, 0xb2, 0x8b, 0x73, 0x09, 0x3f,
+	0x73, 0xbd, 0xe4, 0x6b, 0x2c, 0xa3, 0x97, 0xd1, 0x3d, 0x5e, 0x63, 0x39, 0xd1, 0xcd, 0x6f, 0x00,
+	0x00, 0x00, 0xff, 0xff, 0xfa, 0x12, 0x90, 0x8e, 0xb6, 0x01, 0x00, 0x00,
 }

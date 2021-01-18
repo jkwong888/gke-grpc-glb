@@ -21,14 +21,16 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"log"
 	"os"
 	"time"
-	"crypto/tls"
 
+	pb "helloworld/rpc/helloworld"
+
+	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	pb "helloworld/rpc/helloworld"
 )
 
 const (
@@ -51,7 +53,7 @@ func main() {
 	// Set up a connection to the server.
 
 	config := &tls.Config{
-		InsecureSkipVerify: false,
+		InsecureSkipVerify: true,
 	}
 	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(credentials.NewTLS(config)))
 	//conn, err := grpc.Dial(address, grpc.WithInsecure())
@@ -68,5 +70,5 @@ func main() {
 	if err != nil {
 		log.Fatalf("could not greet: %v", err)
 	}
-	log.Printf("Greeting: %s", r.GetMessage())
+	log.Printf("Response: %s", proto.MarshalTextString(r))
 }

@@ -35,4 +35,11 @@ message HelloRequest {
 // The response message containing the greetings
 message HelloReply {
   string message = 1;
+  string version = 2;
+  string hostname = 3;
+  string nodename = 4;
+  string clustername = 5;
+  string region = 6;
+  string zone = 7;
+  string project = 8;
 }
