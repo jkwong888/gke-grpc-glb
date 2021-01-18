@@ -3,15 +3,15 @@ FROM golang:1.14 as builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
-COPY go.mod /workspace/go.mod
-COPY go.sum /workspace/go.sum
+COPY go.mod go.mod
+COPY go.sum go.sum
 # cache deps before building and copying source so that we don't need to re-download as much
 # and so that source changes don't invalidate our downloaded layer
 RUN go mod download
 
 # Copy the go source
-COPY rpc/ /workspace/rpc/
-COPY cmd/ /workspace/cmd/
+COPY rpc/ rpc/
+COPY cmd/ cmd/
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o helloworld_server cmd/helloworld_server/main.go
