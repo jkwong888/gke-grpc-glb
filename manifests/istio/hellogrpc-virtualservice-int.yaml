@@ -1,0 +1,14 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: hellogrpc-route-internal
+  namespace: hellogrpc
+spec:
+  # forward traffic in the mesh to the helloweb service
+  hosts:
+  - hellogrpc.hellogrpc.svc.cluster.local
+  http:
+  - name: "hellogrpc"
+    route:
+    - destination:
+        host: hellogrpc

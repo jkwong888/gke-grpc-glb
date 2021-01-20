@@ -1,0 +1,19 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: hellogrpc-route-external
+  namespace: hellogrpc
+spec:
+  gateways:
+  - hellogrpc-gateway
+  hosts: 
+  - '*'
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: hellogrpc
+        port:
+          number: 80
