@@ -30,5 +30,5 @@ push image:
     - chmod +x /usr/local/bin/docker-credential-gcr
     - /usr/local/bin/docker-credential-gcr configure-docker
     - crane auth login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - crane cp $CI_REGISTRY_IMAGE/$CI_PROJECT_NAME:$CI_COMMIT_SHA gcr.io/jkwng-cicd-274417/$CI_PROJECT_NAME:$CI_COMMIT_SHA
-    - crane cp $CI_REGISTRY_IMAGE/$CI_PROJECT_NAME:$CI_COMMIT_SHA gcr.io/jkwng-cicd-274417/$CI_PROJECT_NAME:latest
+    - crane cp $CI_REGISTRY_IMAGE/$CI_PROJECT_NAME:$CI_COMMIT_SHA gcr.io/jkwng-images/$CI_PROJECT_NAME:$CI_COMMIT_SHA
+    - crane cp $CI_REGISTRY_IMAGE/$CI_PROJECT_NAME:$CI_COMMIT_SHA gcr.io/jkwng-images/$CI_PROJECT_NAME:latest

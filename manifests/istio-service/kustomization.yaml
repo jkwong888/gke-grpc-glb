@@ -1,0 +1,16 @@
+bases:
+- ../deployment
+
+resources:
+- hellogrpc-destinationrule.yaml
+- hellogrpc-gateway.yaml
+- hellogrpc-virtualservice-ext.yaml
+- hellogrpc-virtualservice-int.yaml
+- hellogrpc-cert.yaml
+
+patchesStrategicMerge:
+- namespace.yaml
+- service.yaml
+
+
+

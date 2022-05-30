@@ -1,0 +1,4 @@
+terraform/
+manifests/
+bin/
+certs/

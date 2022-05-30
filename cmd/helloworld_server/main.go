@@ -23,19 +23,26 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"encoding/json"
 
-	pb "helloworld/rpc/helloworld"
+	gcp "helloworld/pkg/gcp"
+	pb "helloworld/proto/helloworld"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/grpc/codes"
+	health "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/status"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+
+	cmux "github.com/soheilhy/cmux"
 )
 
 const (
@@ -43,60 +50,31 @@ const (
 )
 
 // server is used to implement helloworld.GreeterServer.
-type server struct {
+type grpcServer struct {
 	pb.GreeterServer
+	health.HealthServer
 }
 
-func getMetaData(ctx context.Context, path string) *string {
-	metaDataURL := "http://metadata/computeMetadata/v1/"
-	req, _ := http.NewRequest(
-		"GET",
-		metaDataURL+path,
-		nil,
-	)
-	req.Header.Add("Metadata-Flavor", "Google")
-	req = req.WithContext(ctx)
-	code, body := makeRequest(req)
-
-	if code == 200 {
-		bodyStr := string(body)
-		return &bodyStr
-	}
-
-	return nil
+func (s *grpcServer) Check(context.Context, *health.HealthCheckRequest) (*health.HealthCheckResponse, error) {
+	return &health.HealthCheckResponse{Status: health.HealthCheckResponse_SERVING}, nil
 }
 
-func makeRequest(r *http.Request) (int, []byte) {
-	//transport := http.Transport{DisableKeepAlives: true}
-	//octr := &ochttp.Transport{}
-	//client := &http.Client{Transport: octr}
-	client := &http.Client{}
-	resp, err := client.Do(r)
-	if err != nil {
-		message := "Unable to call backend: " + err.Error()
-		panic(message)
-	}
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		message := "Unable to read response body: " + err.Error()
-		panic(message)
-	}
-
-	return resp.StatusCode, body
+func (s *grpcServer) Watch(*health.HealthCheckRequest, health.Health_WatchServer) error {
+	return status.Error(codes.Unimplemented, "unimplemented")
 }
 
 // SayHello implements helloworld.GreeterServer
-func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
+func (s *grpcServer) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
 	p, _ := peer.FromContext(ctx)
 	frontendip := p.Addr.String()
-	log.Printf("Received request from %v: %v", frontendip, proto.MarshalTextString(in))
+	log.Printf("Received request from %v: %v", frontendip, in.GetName())
 
 	host, _ := os.Hostname()
-	zoneStr := getMetaData(ctx, "instance/zone")
-	nodeName := getMetaData(ctx, "instance/hostname")
-	region := getMetaData(ctx, "instance/attributes/cluster-location")
-	clusterName := getMetaData(ctx, "instance/attributes/cluster-name")
-	project := getMetaData(ctx, "project/project-id")
+	zoneStr := gcp.GetMetaData(ctx, "instance/zone")
+	nodeName := gcp.GetMetaData(ctx, "instance/hostname")
+	region := gcp.GetMetaData(ctx, "instance/attributes/cluster-location")
+	clusterName := gcp.GetMetaData(ctx, "instance/attributes/cluster-name")
+	project := gcp.GetMetaData(ctx, "project/project-id")
 
 	result := &pb.HelloReply{
 		Message:  "Hello " + in.GetName(),
@@ -127,9 +105,27 @@ func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloRe
 	return result, nil
 }
 
-func main() {
-	tls := flag.Bool("tls", false, "listen on TLS")
+type httpHealthCheckHandler struct {}
 
+func (h *httpHealthCheckHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+
+	w.Header().Set("Content-Type", "application/json")
+	resp := make(map[string]string)
+	resp["message"] = "Status OK"
+	jsonResp, err := json.Marshal(resp)
+	if err != nil {
+		log.Fatalf("Error happened in JSON marshal. Err: %s", err)
+	}
+	w.Write(jsonResp)
+}
+
+func main() {
+
+	tlsCrt := flag.String("crt", "certs/tls.crt", "TLS certificate")
+	tlsKey := flag.String("key", "certs/tls.key", "TLS private key")
+	tlsB := flag.Bool("tls", true, "enable TLS")
 	flag.Parse()
 
 	lis, err := net.Listen("tcp", port)
@@ -137,10 +133,26 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
+	log.Printf("Listening on port: %v", port)
+
+	/* check if grpc needs to listen on TLS */
+	tls := *tlsB
 	grpcOptions := make([]grpc.ServerOption, 0)
-	if *tls {
-		log.Printf("Listening on TLS")
-		creds, err := credentials.NewServerTLSFromFile("certs/tls.crt", "certs/tls.key")
+	if tls {
+		if _, err := os.Stat(*tlsCrt); errors.Is(err, os.ErrNotExist) {
+			tls = false
+			log.Printf("Could not find %v", *tlsCrt)
+		}
+
+		if _, err := os.Stat(*tlsKey); errors.Is(err, os.ErrNotExist) {
+			tls = false
+			log.Printf("Could not find %v", *tlsKey)
+		}
+	}
+
+	if tls {
+		log.Printf("TLS enabled using cert: %v, private key: %v", *tlsCrt, *tlsKey)
+		creds, err := credentials.NewServerTLSFromFile(*tlsCrt, *tlsKey)
 		if err != nil {
 			log.Fatalf("Failed to setup TLS: %v", err)
 		}
@@ -150,11 +162,28 @@ func main() {
 
 	s := grpc.NewServer(grpcOptions...)
 
-	pb.RegisterGreeterServer(s, &server{})
+	/* register grpc services */
+	g := &grpcServer{}
 
-	log.Printf("Listening on port: %v", port)
+	pb.RegisterGreeterServer(s, g)
+	health.RegisterHealthServer(s, g)
 
-	if err := s.Serve(lis); err != nil {
+	/* register http services */
+	h := &http.Server{}
+	http.DefaultServeMux.Handle("/healthz", &httpHealthCheckHandler{})
+
+	m := cmux.New(lis)
+
+	// if http1.1 match, send to the http handler 
+	httpL := m.Match(cmux.HTTP1Fast())
+
+	// otherwise assume grpc
+	grpcL := m.Match(cmux.Any())
+
+	go s.Serve(grpcL)
+	go h.Serve(httpL)
+
+	if err := m.Serve(); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
 }

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingressgateway
+  namespace: istio-system
+  annotations:
+    cloud.google.com/neg: '{"exposed_ports": {"443":{}, "80":{}}}'
+    cloud.google.com/app-protocols: '{"grpc":"HTTP2"}'
+
+spec:
+  type: ClusterIP

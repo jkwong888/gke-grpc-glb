@@ -14,6 +14,6 @@ spec:
         prefix: /
     route:
     - destination:
-        host: hellogrpc
+        host: helloworld-grpc.hellogrpc.svc.cluster.local
         port:
-          number: 80
+          number: 50051

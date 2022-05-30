@@ -2,14 +2,13 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: hellogrpc
-  name: hellogrpc
-  namespace: hellogrpc
+    app: helloworld-grpc
+  name: helloworld-grpc
 spec:
   ports:
-  - port:  80
+  - port: 50051 
     protocol: TCP
     targetPort: 50051
     name: grpc
   selector:
-    app: hellogrpc
+    app: helloworld-grpc

@@ -5,7 +5,16 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+REGISTRY=gcr.io/jkwng-images/helloworld-grpc
+TAG=v2.3
+
 all: proto server client
+
+build_image: proto
+	docker build -t ${REGISTRY}:${TAG} .
+
+push_image: build_image
+	docker push ${REGISTRY}:${TAG}
 
 cert:
 	openssl genrsa -out certs/ca.key 4096
@@ -15,8 +24,8 @@ cert:
 	openssl x509 -req -in certs/service.csr -CA certs/ca.cert -CAkey certs/ca.key -CAcreateserial -out certs/service.pem -days 3650 -sha256 -extfile certs/certificate.conf -extensions req_ext
 
 
-proto: 
-	protoc --proto_path=rpc/helloworld --go_out=plugins=grpc:rpc/helloworld rpc/helloworld/helloworld.proto
+proto: proto/helloworld
+	protoc --proto_path=proto/helloworld --go_out=plugins=grpc:proto proto/helloworld/helloworld.proto 
 
 server:
 	@echo "Building server at './bin/helloworld_server' ..."

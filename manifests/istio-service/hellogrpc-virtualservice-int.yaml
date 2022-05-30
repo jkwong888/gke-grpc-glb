@@ -6,9 +6,9 @@ metadata:
 spec:
   # forward traffic in the mesh to the helloweb service
   hosts:
-  - hellogrpc.hellogrpc.svc.cluster.local
+  - helloworld-grpc.hellogrpc.svc.cluster.local
   http:
   - name: "hellogrpc"
     route:
     - destination:
-        host: hellogrpc
+        host: helloworld-grpc.hellogrpc.svc.cluster.local

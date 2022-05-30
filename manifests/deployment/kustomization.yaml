@@ -1,0 +1,12 @@
+
+resources:
+- namespace.yaml
+- deployment.yaml
+- service.yaml
+
+images:
+- name: helloworld-grpc
+  newName: gcr.io/jkwng-images/helloworld-grpc
+  newTag: v2.3
+
+namespace: hellogrpc

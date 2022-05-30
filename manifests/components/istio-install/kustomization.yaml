@@ -1,0 +1,6 @@
+resources:
+- istio.yaml
+- namespace.yaml
+
+patchesStrategicMerge:
+- service-clusterip.yaml

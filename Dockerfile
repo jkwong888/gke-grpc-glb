@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.14 as builder
+FROM golang:1.17 as builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -10,7 +10,8 @@ COPY go.sum go.sum
 RUN go mod download
 
 # Copy the go source
-COPY rpc/ rpc/
+COPY proto/ proto/
+COPY pkg/ pkg/
 COPY cmd/ cmd/
 
 # Build
@@ -21,7 +22,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o hellowor
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 COPY --from=builder /workspace/helloworld_server .
-COPY --chown=nonroot:nonroot certs/ certs/ 
+#COPY --chown=nonroot:nonroot certs/ certs/ 
 USER nonroot:nonroot
 
 ENTRYPOINT ["/helloworld_server"]

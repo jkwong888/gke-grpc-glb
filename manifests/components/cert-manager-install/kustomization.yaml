@@ -1,0 +1,6 @@
+
+bases:
+- https://github.com/cert-manager/cert-manager/releases/download/v1.8.0/cert-manager.yaml
+
+resources:
+- self-signed-issuer.yaml

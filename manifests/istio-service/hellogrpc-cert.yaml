@@ -2,11 +2,12 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: hellogrpc-selfsigned
+  # because of Reasons, we need to create this in the same namespace that the istio gateway runs in
   namespace: istio-system
 spec:
   # Secret names are always required.
   secretName: hellogrpc-tls
-  commonName: localhost
+  commonName: hellogrpc
   issuerRef:
     name: selfsigned-issuer
     kind: ClusterIssuer

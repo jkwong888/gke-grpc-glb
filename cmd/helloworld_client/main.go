@@ -26,7 +26,7 @@ import (
 	"log"
 	"time"
 
-	pb "helloworld/rpc/helloworld"
+	pb "helloworld/proto/helloworld"
 
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
@@ -39,25 +39,14 @@ const (
 )
 
 func main() {
-	name := defaultName
-	address := defaultAddress
-
 	connecttls := flag.Bool("tls", true, "connect over TLS")
 	verifytls := flag.Bool("verifytls", true, "verify TLS")
+	address := flag.String("addr", defaultAddress, "address to connect to, default localhost:50051")
+	name := flag.String("name", defaultName, "name, default is world")
 
 	flag.Parse()
 
-	args := flag.Args()
-
-	if len(args) > 1 {
-		address = args[0]
-	}
-
-	if len(args) > 2 {
-		name = args[1]
-	}
-
-	log.Printf("Connecting to %v as %s", address, name)
+	log.Printf("Connecting to %v as %s", *address, *name)
 	// Set up a connection to the server.
 
 	grpcOptions := make([]grpc.DialOption, 0)
@@ -72,7 +61,7 @@ func main() {
 		grpcOptions = append(grpcOptions, grpc.WithInsecure())
 	}
 
-	conn, err := grpc.Dial(address, grpcOptions...)
+	conn, err := grpc.Dial(*address, grpcOptions...)
 
 	//conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
@@ -84,7 +73,7 @@ func main() {
 	// Contact the server and print out its response.
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	r, err := c.SayHello(ctx, &pb.HelloRequest{Name: name})
+	r, err := c.SayHello(ctx, &pb.HelloRequest{Name: *name})
 	if err != nil {
 		log.Fatalf("could not greet: %v", err)
 	}

@@ -4,5 +4,4 @@ metadata:
   annotations:
     cloud.google.com/neg: '{"exposed_ports": {"50051":{}}}'
     cloud.google.com/app-protocols: '{"grpc":"HTTP2"}'
-    controller.autoneg.dev/neg: '{"backend_services":{"50051":[{"name":"hellogrpc-dev","max_rate_per_endpoint":1000}]}}'
   name: helloworld-grpc
