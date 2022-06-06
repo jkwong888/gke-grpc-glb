@@ -23,19 +23,21 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"log"
 	"net"
 	"net/http"
 	"os"
-	"encoding/json"
 
 	gcp "helloworld/pkg/gcp"
+	tenant "helloworld/pkg/tenant"
 	pb "helloworld/proto/helloworld"
 
 	"google.golang.org/grpc/codes"
 	health "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"google.golang.org/grpc"
@@ -49,10 +51,13 @@ const (
 	port = ":50051"
 )
 
+
 // server is used to implement helloworld.GreeterServer.
 type grpcServer struct {
 	pb.GreeterServer
 	health.HealthServer
+
+	serverTenantConfig tenant.TenantConfig
 }
 
 func (s *grpcServer) Check(context.Context, *health.HealthCheckRequest) (*health.HealthCheckResponse, error) {
@@ -67,7 +72,23 @@ func (s *grpcServer) Watch(*health.HealthCheckRequest, health.Health_WatchServer
 func (s *grpcServer) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
 	p, _ := peer.FromContext(ctx)
 	frontendip := p.Addr.String()
-	log.Printf("Received request from %v: %v", frontendip, in.GetName())
+
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.InvalidArgument, "Missing X-Tenant-Id header")
+	}
+
+	if md.Get("X-Tenant-Id") == nil {
+		return nil, status.Error(codes.InvalidArgument, "Missing X-Tenant-Id header")
+	}
+
+	clientTargetTenantId := md.Get("X-Tenant-Id")[0]
+	/* check if this tenant is allowed */
+	if !s.serverTenantConfig.CheckTenantId(clientTargetTenantId) {
+		return nil, status.Error(codes.InvalidArgument, "Wrong Tenant-Id for instance")
+	}
+
+	log.Printf("<%v> Received request from %v: %v", clientTargetTenantId, frontendip, in.GetName())
 
 	host, _ := os.Hostname()
 	zoneStr := gcp.GetMetaData(ctx, "instance/zone")
@@ -78,8 +99,9 @@ func (s *grpcServer) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.Hel
 
 	result := &pb.HelloReply{
 		Message:  "Hello " + in.GetName(),
-		Version:  "v2.0.0",
+		Version:  "v2.1.0",
 		Hostname: host,
+		TenantId: clientTargetTenantId,
 	}
 
 	if zoneStr != nil {
@@ -126,6 +148,7 @@ func main() {
 	tlsCrt := flag.String("crt", "certs/tls.crt", "TLS certificate")
 	tlsKey := flag.String("key", "certs/tls.key", "TLS private key")
 	tlsB := flag.Bool("tls", true, "enable TLS")
+	configDir := flag.String("config-dir", "config/", "config directory")
 	flag.Parse()
 
 	lis, err := net.Listen("tcp", port)
@@ -162,8 +185,14 @@ func main() {
 
 	s := grpc.NewServer(grpcOptions...)
 
+	/* get the tenant config */
+	t := tenant.LoadTenantConfig(*configDir)
+	log.Printf("Loaded Tenant Config: %+v", t)
+
 	/* register grpc services */
-	g := &grpcServer{}
+	g := &grpcServer{
+		serverTenantConfig: *t,
+	}
 
 	pb.RegisterGreeterServer(s, g)
 	health.RegisterHealthServer(s, g)

@@ -42,4 +42,5 @@ message HelloReply {
   string region = 6;
   string zone = 7;
   string project = 8;
+  string tenant_id = 9;
 }

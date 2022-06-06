@@ -28,9 +28,12 @@ import (
 
 	pb "helloworld/proto/helloworld"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 const (
@@ -43,10 +46,16 @@ func main() {
 	verifytls := flag.Bool("verifytls", true, "verify TLS")
 	address := flag.String("addr", defaultAddress, "address to connect to, default localhost:50051")
 	name := flag.String("name", defaultName, "name, default is world")
+	tenantId := flag.String("tenant", "", "tenantId to connect to, default will generated one")
 
 	flag.Parse()
 
-	log.Printf("Connecting to %v as %s", *address, *name)
+	if *tenantId == "" {
+		defaultTenantId := uuid.New().String()
+		tenantId = &defaultTenantId
+	}
+
+	log.Printf("Connecting to %v as %s with TenantID: %v", *address, *name, *tenantId)
 	// Set up a connection to the server.
 
 	grpcOptions := make([]grpc.DialOption, 0)
@@ -58,7 +67,7 @@ func main() {
 		}
 		grpcOptions = append(grpcOptions, grpc.WithTransportCredentials(credentials.NewTLS(config)))
 	} else {
-		grpcOptions = append(grpcOptions, grpc.WithInsecure())
+		grpcOptions = append(grpcOptions, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
 	conn, err := grpc.Dial(*address, grpcOptions...)
@@ -73,9 +82,14 @@ func main() {
 	// Contact the server and print out its response.
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
+
+	/* set up the metadata */
+	ctx = metadata.AppendToOutgoingContext(ctx, "X-Tenant-Id", *tenantId)
+
 	r, err := c.SayHello(ctx, &pb.HelloRequest{Name: *name})
 	if err != nil {
 		log.Fatalf("could not greet: %v", err)
 	}
-	log.Printf("Response: %s", proto.MarshalTextString(r))
+	
+	log.Printf("Response: %v", protojson.Format(r))
 }

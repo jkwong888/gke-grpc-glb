@@ -40,3 +40,10 @@ spec:
             port: 50051
           initialDelaySeconds: 3
           periodSeconds: 3
+        volumeMounts:
+        - name: tenant-config
+          mountPath: /config
+      volumes:
+      - name: tenant-config
+        configMap:
+          name: helloworld-grpc-tenant-config

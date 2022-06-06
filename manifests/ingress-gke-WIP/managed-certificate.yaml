@@ -1,0 +1,7 @@
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: hellogrpc-dev-gcp-jkwong-info
+spec:
+  domains:
+    - hellogrpc-dev.gcp.jkwong.info

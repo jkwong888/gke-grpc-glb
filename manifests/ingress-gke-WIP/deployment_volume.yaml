@@ -1,0 +1,12 @@
+- op: add
+  path: /spec/template/spec/containers/0/volumeMounts
+  value:
+    - name: tls-certs
+      mountPath: "/certs"
+      readOnly: true
+- op: add
+  path: /spec/template/spec/volumes
+  value:
+    - name: tls-certs
+      secret:
+        secretName: hellogrpc-tls

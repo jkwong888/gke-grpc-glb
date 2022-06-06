@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hellogrpc
+  annotations:
+    kubernetes.io/ingress.allow-http: "false"
+    networking.gke.io/managed-certificates: hellogrpc-dev-gcp-jkwong-info
+spec:
+  rules:
+  - host: hellogrpc-dev.gcp.jkwong.info
+    http:
+      paths:
+      - path: /*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: helloworld-grpc
+            port:
+              number: 50051

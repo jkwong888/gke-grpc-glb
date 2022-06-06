@@ -9,4 +9,12 @@ images:
   newName: gcr.io/jkwng-images/helloworld-grpc
   newTag: v2.3
 
+configMapGenerator:
+- name: helloworld-grpc-tenant-config
+  files:
+    - configs/tenant-config.yaml
+
+commonLabels:
+  app: helloworld-grpc
+
 namespace: hellogrpc

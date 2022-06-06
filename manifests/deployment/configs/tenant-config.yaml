@@ -1,0 +1,4 @@
+allowed_tenants:
+- "*"
+
+denied_tenants: []

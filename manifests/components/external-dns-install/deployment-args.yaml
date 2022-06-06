@@ -1,0 +1,10 @@
+- op: add
+  path: /spec/template/spec/containers/0/args
+  value:
+    - --source=ingress
+    - --source=service
+    - --domain-filter=gcp.jkwong.info
+    - --provider=google
+    - --google-project=jkwng-nonprod-vpc
+    - --registry=txt
+    - --txt-owner-id=my-identifier
