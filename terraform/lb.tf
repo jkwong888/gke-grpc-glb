@@ -49,7 +49,7 @@ resource "google_compute_target_https_proxy" "hellogrpc-dev" {
 resource "google_compute_url_map" "hellogrpc-dev" {
   name            = "hellogrpc-dev"
   description     = "hellogrpc-dev"
-  default_service = google_compute_backend_service.hellogrpc-dev.id
+  default_service = google_compute_backend_service.hellogrpc-dev-a.id
   project         = module.service_project.project_id
 
   host_rule {
@@ -59,18 +59,88 @@ resource "google_compute_url_map" "hellogrpc-dev" {
 
   path_matcher {
     name            = "allpaths"
-    default_service = google_compute_backend_service.hellogrpc-dev.id
+    default_service = google_compute_backend_service.default.id
 
-    path_rule {
-      paths   = ["/*"]
-      service = google_compute_backend_service.hellogrpc-dev.id
+    route_rules {
+      priority = 1
+      service = google_compute_backend_service.hellogrpc-dev-a.id
+      match_rules {
+        prefix_match = "/"
+        ignore_case = true
+        header_matches {
+          header_name = "X-Tenant-Id"
+          exact_match = "a"
+        }
+      }
     }
+
+    route_rules {
+      priority = 2
+      service = google_compute_backend_service.hellogrpc-dev-b.id
+      match_rules {
+        prefix_match = "/"
+        ignore_case = true
+        header_matches {
+          header_name = "X-Tenant-Id"
+          exact_match = "b"
+        }
+      }
+    }
+  }
+}
+
+resource "google_compute_backend_service" "hellogrpc-dev-b" {
+  name        = "hellogrpc-dev-b"
+  port_name   = "http2"
+  protocol    = "HTTP2"
+  timeout_sec = 300
+
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  locality_lb_policy    = "LEAST_REQUEST"
+
+  lifecycle {
+    ignore_changes = [
+      backend,
+    ]
+  }
+
+  health_checks = [google_compute_health_check.http-health-check.id]
+  project       = module.service_project.project_id
+
+  log_config {
+    enable = true
+    sample_rate = 1
   }
 
 }
 
-resource "google_compute_backend_service" "hellogrpc-dev" {
-  name        = "hellogrpc-dev"
+resource "google_compute_backend_service" "hellogrpc-dev-a" {
+  name        = "hellogrpc-dev-a"
+  port_name   = "http2"
+  protocol    = "HTTP2"
+  timeout_sec = 300
+
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  locality_lb_policy    = "LEAST_REQUEST"
+
+  lifecycle {
+    ignore_changes = [
+      backend,
+    ]
+  }
+
+  health_checks = [google_compute_health_check.http-health-check.id]
+  project       = module.service_project.project_id
+
+  log_config {
+    enable = true
+    sample_rate = 1
+  }
+
+}
+
+resource "google_compute_backend_service" "default" {
+  name        = "default"
   port_name   = "http2"
   protocol    = "HTTP2"
   timeout_sec = 300

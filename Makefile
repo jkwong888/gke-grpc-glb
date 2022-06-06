@@ -6,7 +6,7 @@ GOBIN=$(shell go env GOBIN)
 endif
 
 REGISTRY=gcr.io/jkwng-images/helloworld-grpc
-TAG=v2.3
+TAG=v2.4
 
 all: proto server client
 

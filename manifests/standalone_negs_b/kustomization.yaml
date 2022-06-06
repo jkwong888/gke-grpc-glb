@@ -1,0 +1,8 @@
+bases:
+- ../standalone_negs
+
+patchesStrategicMerge:
+- service.yaml
+- configmap.yaml
+
+namespace: hellogrpc-b

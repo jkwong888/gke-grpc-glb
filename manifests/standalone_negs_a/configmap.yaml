@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: helloworld-grpc-tenant-config
+data:
+  tenant-config.yaml: |-
+    allowed_tenants:
+    - "a"
+
+    denied_tenants: []
