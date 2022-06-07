@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -49,8 +50,8 @@ import (
 
 const (
 	port = ":50051"
+	defaultVersion = "v1.0.0"
 )
-
 
 // server is used to implement helloworld.GreeterServer.
 type grpcServer struct {
@@ -97,9 +98,15 @@ func (s *grpcServer) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.Hel
 	clusterName := gcp.GetMetaData(ctx, "instance/attributes/cluster-name")
 	project := gcp.GetMetaData(ctx, "project/project-id")
 
+	version, err := ioutil.ReadFile("version.txt")
+	if err != nil {
+		version = []byte(defaultVersion)
+		log.Printf("<%v> unable to open version file version.txt, using default version %s", clientTargetTenantId, version)
+	}
+
 	result := &pb.HelloReply{
 		Message:  "Hello " + in.GetName(),
-		Version:  "v2.1.0",
+		Version:  string(version),
 		Hostname: host,
 		TenantId: clientTargetTenantId,
 	}
@@ -187,7 +194,8 @@ func main() {
 
 	/* get the tenant config */
 	t := tenant.LoadTenantConfig(*configDir)
-	log.Printf("Loaded Tenant Config: %+v", t)
+	tenantConfigJSON, _ := json.Marshal(t)
+	log.Printf("Loaded Tenant Config: %v", string(tenantConfigJSON))
 
 	/* register grpc services */
 	g := &grpcServer{

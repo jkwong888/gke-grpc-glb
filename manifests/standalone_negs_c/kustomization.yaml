@@ -6,9 +6,9 @@ patchesStrategicMerge:
 - configmap.yaml
 
 nameSuffix: 
-  -a
+  -c
 
 commonLabels:
-  deployment: a
+  deployment: c
 
-namespace: hellogrpc-a
+namespace: hellogrpc-c

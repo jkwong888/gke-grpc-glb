@@ -5,4 +5,10 @@ patchesStrategicMerge:
 - service.yaml
 - configmap.yaml
 
+nameSuffix: 
+  -b
+
+commonLabels:
+  deployment: b
+
 namespace: hellogrpc-b

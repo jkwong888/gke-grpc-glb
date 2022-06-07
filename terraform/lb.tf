@@ -62,31 +62,264 @@ resource "google_compute_url_map" "hellogrpc-dev" {
     default_service = google_compute_backend_service.default.id
 
     route_rules {
-      priority = 1
+      priority = 1000
       service = google_compute_backend_service.hellogrpc-dev-a.id
       match_rules {
         prefix_match = "/"
         ignore_case = true
         header_matches {
           header_name = "X-Tenant-Id"
-          exact_match = "a"
+          prefix_match = "0"
         }
       }
     }
 
     route_rules {
-      priority = 2
+      priority = 1001
+      service = google_compute_backend_service.hellogrpc-dev-a.id
+      match_rules {
+        prefix_match = "/"
+        ignore_case = true
+        header_matches {
+          header_name = "X-Tenant-Id"
+          prefix_match = "1"
+        }
+      }
+    }
+
+    route_rules {
+      priority = 1002
+      service = google_compute_backend_service.hellogrpc-dev-a.id
+      match_rules {
+        prefix_match = "/"
+        ignore_case = true
+        header_matches {
+          header_name = "X-Tenant-Id"
+          prefix_match = "2"
+        }
+      }
+    }
+
+    route_rules {
+      priority = 1003
+      service = google_compute_backend_service.hellogrpc-dev-a.id
+      match_rules {
+        prefix_match = "/"
+        ignore_case = true
+        header_matches {
+          header_name = "X-Tenant-Id"
+          prefix_match = "3"
+        }
+      }
+    }
+
+    route_rules {
+      priority = 1004
       service = google_compute_backend_service.hellogrpc-dev-b.id
       match_rules {
         prefix_match = "/"
         ignore_case = true
         header_matches {
           header_name = "X-Tenant-Id"
-          exact_match = "b"
+          prefix_match = "4"
         }
       }
     }
+
+    route_rules {
+      priority = 1005
+      service = google_compute_backend_service.hellogrpc-dev-b.id
+      match_rules {
+        prefix_match = "/"
+        ignore_case = true
+        header_matches {
+          header_name = "X-Tenant-Id"
+          prefix_match = "5"
+        }
+      }
+    }
+
+    route_rules {
+      priority = 1006
+      service = google_compute_backend_service.hellogrpc-dev-b.id
+      match_rules {
+        prefix_match = "/"
+        ignore_case = true
+        header_matches {
+          header_name = "X-Tenant-Id"
+          prefix_match = "6"
+        }
+      }
+    }
+
+    route_rules {
+      priority = 1007
+      service = google_compute_backend_service.hellogrpc-dev-b.id
+      match_rules {
+        prefix_match = "/"
+        ignore_case = true
+        header_matches {
+          header_name = "X-Tenant-Id"
+          prefix_match = "7"
+        }
+      }
+    }
+
+    route_rules {
+      priority = 1008
+      service = google_compute_backend_service.hellogrpc-dev-c.id
+      match_rules {
+        prefix_match = "/"
+        ignore_case = true
+        header_matches {
+          header_name = "X-Tenant-Id"
+          prefix_match = "8"
+        }
+      }
+    }
+
+    route_rules {
+      priority = 1009
+      service = google_compute_backend_service.hellogrpc-dev-c.id
+      match_rules {
+        prefix_match = "/"
+        ignore_case = true
+        header_matches {
+          header_name = "X-Tenant-Id"
+          prefix_match = "9"
+        }
+      }
+    }
+
+    route_rules {
+      priority = 1010
+      service = google_compute_backend_service.hellogrpc-dev-c.id
+      match_rules {
+        prefix_match = "/"
+        ignore_case = true
+        header_matches {
+          header_name = "X-Tenant-Id"
+          prefix_match = "a"
+        }
+      }
+    }
+
+    route_rules {
+      priority = 1011
+      service = google_compute_backend_service.hellogrpc-dev-c.id
+      match_rules {
+        prefix_match = "/"
+        ignore_case = true
+        header_matches {
+          header_name = "X-Tenant-Id"
+          prefix_match = "b"
+        }
+      }
+    }
+
+    route_rules {
+      priority = 1012
+      service = google_compute_backend_service.hellogrpc-dev-d.id
+      match_rules {
+        prefix_match = "/"
+        ignore_case = true
+        header_matches {
+          header_name = "X-Tenant-Id"
+          prefix_match = "c"
+        }
+      }
+    }
+
+    route_rules {
+      priority = 1013
+      service = google_compute_backend_service.hellogrpc-dev-d.id
+      match_rules {
+        prefix_match = "/"
+        ignore_case = true
+        header_matches {
+          header_name = "X-Tenant-Id"
+          prefix_match = "d"
+        }
+      }
+    }
+
+    route_rules {
+      priority = 1014
+      service = google_compute_backend_service.hellogrpc-dev-d.id
+      match_rules {
+        prefix_match = "/"
+        ignore_case = true
+        header_matches {
+          header_name = "X-Tenant-Id"
+          prefix_match = "e"
+        }
+      }
+    }
+
+    route_rules {
+      priority = 1015
+      service = google_compute_backend_service.hellogrpc-dev-d.id
+      match_rules {
+        prefix_match = "/"
+        ignore_case = true
+        header_matches {
+          header_name = "X-Tenant-Id"
+          prefix_match = "f"
+        }
+      }
+    }
+
   }
+}
+
+resource "google_compute_backend_service" "hellogrpc-dev-d" {
+  name        = "hellogrpc-dev-d"
+  port_name   = "http2"
+  protocol    = "HTTP2"
+  timeout_sec = 300
+
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  locality_lb_policy    = "LEAST_REQUEST"
+
+  lifecycle {
+    ignore_changes = [
+      backend,
+    ]
+  }
+
+  health_checks = [google_compute_health_check.http-health-check.id]
+  project       = module.service_project.project_id
+
+  log_config {
+    enable = true
+    sample_rate = 1
+  }
+
+}
+
+resource "google_compute_backend_service" "hellogrpc-dev-c" {
+  name        = "hellogrpc-dev-c"
+  port_name   = "http2"
+  protocol    = "HTTP2"
+  timeout_sec = 300
+
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  locality_lb_policy    = "LEAST_REQUEST"
+
+  lifecycle {
+    ignore_changes = [
+      backend,
+    ]
+  }
+
+  health_checks = [google_compute_health_check.http-health-check.id]
+  project       = module.service_project.project_id
+
+  log_config {
+    enable = true
+    sample_rate = 1
+  }
+
 }
 
 resource "google_compute_backend_service" "hellogrpc-dev-b" {

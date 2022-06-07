@@ -22,6 +22,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o hellowor
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 COPY --from=builder /workspace/helloworld_server .
+COPY version.txt .
 #COPY --chown=nonroot:nonroot certs/ certs/ 
 USER nonroot:nonroot
 

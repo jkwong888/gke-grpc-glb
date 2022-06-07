@@ -6,7 +6,7 @@ data:
   tenant-config.yaml: |-
     allowed_tenants:
     - range:
-      - start: 00000000-0000-0000-0000-000000000000
-        end: 3fffffff-ffff-ffff-ffff-ffffffffffff	
+      - start: 80000000-0000-0000-0000-000000000000
+        end: bfffffff-ffff-ffff-ffff-ffffffffffff	
 
     denied_tenants: []
