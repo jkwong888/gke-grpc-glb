@@ -3,11 +3,12 @@ resources:
 - namespace.yaml
 - deployment.yaml
 - service.yaml
+- pdb.yaml
 
 images:
 - name: helloworld-grpc
   newName: gcr.io/jkwng-images/helloworld-grpc
-  newTag: v2.6.1
+  newTag: v2.7.0
 
 configMapGenerator:
 - name: helloworld-grpc-tenant-config

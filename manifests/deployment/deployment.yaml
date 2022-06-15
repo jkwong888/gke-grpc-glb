@@ -5,6 +5,7 @@ metadata:
     app: helloworld-grpc
   name: helloworld-grpc
 spec:
+  replicas: 3
   selector:
     matchLabels:
       app: helloworld-grpc

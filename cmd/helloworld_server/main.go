@@ -26,6 +26,8 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -33,11 +35,12 @@ import (
 	"os"
 
 	gcp "helloworld/pkg/gcp"
+	http_health "helloworld/pkg/healthcheck"
 	tenant "helloworld/pkg/tenant"
 	pb "helloworld/proto/helloworld"
 
 	"google.golang.org/grpc/codes"
-	health "google.golang.org/grpc/health/grpc_health_v1"
+	grpc_health "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
@@ -56,41 +59,20 @@ const (
 // server is used to implement helloworld.GreeterServer.
 type grpcServer struct {
 	pb.GreeterServer
-	health.HealthServer
+	grpc_health.HealthServer
 
 	serverTenantConfig tenant.TenantConfig
 }
 
-func (s *grpcServer) Check(context.Context, *health.HealthCheckRequest) (*health.HealthCheckResponse, error) {
-	return &health.HealthCheckResponse{Status: health.HealthCheckResponse_SERVING}, nil
+func (s *grpcServer) Check(context.Context, *grpc_health.HealthCheckRequest) (*grpc_health.HealthCheckResponse, error) {
+	return &grpc_health.HealthCheckResponse{Status: grpc_health.HealthCheckResponse_SERVING}, nil
 }
 
-func (s *grpcServer) Watch(*health.HealthCheckRequest, health.Health_WatchServer) error {
+func (s *grpcServer) Watch(*grpc_health.HealthCheckRequest, grpc_health.Health_WatchServer) error {
 	return status.Error(codes.Unimplemented, "unimplemented")
 }
 
-// SayHello implements helloworld.GreeterServer
-func (s *grpcServer) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
-	p, _ := peer.FromContext(ctx)
-	frontendip := p.Addr.String()
-
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.InvalidArgument, "Missing X-Tenant-Id header")
-	}
-
-	if md.Get("X-Tenant-Id") == nil {
-		return nil, status.Error(codes.InvalidArgument, "Missing X-Tenant-Id header")
-	}
-
-	clientTargetTenantId := md.Get("X-Tenant-Id")[0]
-	/* check if this tenant is allowed */
-	if !s.serverTenantConfig.CheckTenantId(clientTargetTenantId) {
-		return nil, status.Error(codes.InvalidArgument, "Wrong Tenant-Id for instance")
-	}
-
-	log.Printf("<%v> Received request from %v: %v", clientTargetTenantId, frontendip, in.GetName())
-
+func getHelloReply(ctx context.Context, in *pb.HelloRequest, clientTargetTenantId string) (*pb.HelloReply, error) {
 	host, _ := os.Hostname()
 	zoneStr := gcp.GetMetaData(ctx, "instance/zone")
 	nodeName := gcp.GetMetaData(ctx, "instance/hostname")
@@ -134,20 +116,88 @@ func (s *grpcServer) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.Hel
 	return result, nil
 }
 
-type httpHealthCheckHandler struct {}
-
-func (h *httpHealthCheckHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
-
-	w.Header().Set("Content-Type", "application/json")
-	resp := make(map[string]string)
-	resp["message"] = "Status OK"
-	jsonResp, err := json.Marshal(resp)
-	if err != nil {
-		log.Fatalf("Error happened in JSON marshal. Err: %s", err)
+func (s *grpcServer) validateTenantId(md metadata.MD) (string, error) {
+	if md.Get("X-Tenant-Id") == nil {
+		return "", status.Error(codes.InvalidArgument, "Missing X-Tenant-Id header")
 	}
-	w.Write(jsonResp)
+
+	clientTargetTenantId := md.Get("X-Tenant-Id")[0]
+	/* check if this tenant is allowed */
+	if !s.serverTenantConfig.CheckTenantId(clientTargetTenantId) {
+		return "", status.Error(codes.InvalidArgument, "Wrong Tenant-Id for instance")
+	}
+
+	return clientTargetTenantId, nil
+}
+
+// SayHello implements helloworld.GreeterServer
+func (s *grpcServer) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
+	p, _ := peer.FromContext(ctx)
+	frontendip := p.Addr.String()
+
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.InvalidArgument, "Unable to retrieve request metadata")
+	}
+
+	clientTargetTenantId, err := s.validateTenantId(md)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Printf("[%v] <%v> Received request: %v", frontendip, clientTargetTenantId, in.GetName())
+
+	return getHelloReply(ctx, in, clientTargetTenantId)
+
+}
+
+/* streaming hello ... client sends hellos to us with random intervals and we respond to each one as we receive it until 
+   the client closes the connection */
+func (s *grpcServer) StreamingHello(stream pb.Greeter_StreamingHelloServer) error {
+	p, _ := peer.FromContext(stream.Context())
+	frontendip := p.Addr.String()
+
+	// get the stream header
+	md, ok := metadata.FromIncomingContext(stream.Context())
+	if !ok {
+		return status.Error(codes.InvalidArgument, fmt.Sprintf("[%v] Unable to retrieve request metadata", frontendip))
+	}
+
+	clientTargetTenantId, err := s.validateTenantId(md)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("[%v] <%v> Client opened request stream", frontendip, clientTargetTenantId)
+
+	for {
+		in, err := stream.Recv()
+
+		if err == io.EOF { 
+			// client closed the connection
+			log.Printf("[%v] <%v> Client closed connection", frontendip, clientTargetTenantId)
+			break
+		}
+
+		if err != nil {
+			log.Printf("[%v] <%v> Error: %v", frontendip, clientTargetTenantId, err.Error())
+			return err
+		}
+		
+		log.Printf("[%v] <%v> Received request: %v", frontendip, clientTargetTenantId, in.GetName())
+		reply, err := getHelloReply(stream.Context(), in, clientTargetTenantId)
+		if err != nil {
+			log.Printf("[%v] <%v> Error: %v", frontendip, clientTargetTenantId, err.Error())
+			return err
+		}
+
+		if err := stream.Send(reply); err != nil {
+			log.Printf("[%v] <%v> Error: %v", frontendip, clientTargetTenantId, err.Error())
+			return err
+		}
+	}
+
+	return nil
 }
 
 func main() {
@@ -203,11 +253,11 @@ func main() {
 	}
 
 	pb.RegisterGreeterServer(s, g)
-	health.RegisterHealthServer(s, g)
+	grpc_health.RegisterHealthServer(s, g)
 
 	/* register http services */
 	h := &http.Server{}
-	http.DefaultServeMux.Handle("/healthz", &httpHealthCheckHandler{})
+	http.DefaultServeMux.Handle("/healthz", &http_health.HttpHealthCheckHandler{})
 
 	m := cmux.New(lis)
 

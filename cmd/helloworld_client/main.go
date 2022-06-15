@@ -23,7 +23,9 @@ import (
 	"context"
 	"crypto/tls"
 	"flag"
+	"io"
 	"log"
+	"math/rand"
 	"time"
 
 	pb "helloworld/proto/helloworld"
@@ -47,6 +49,9 @@ func main() {
 	address := flag.String("addr", defaultAddress, "address to connect to, default localhost:50051")
 	name := flag.String("name", defaultName, "name, default is world")
 	tenantId := flag.String("tenant", "", "tenantId to connect to, default will generated one")
+	useStream := flag.Bool ("stream", false, "use streaming rpc, default false to use unary rpc")
+	streamCount := flag.Int("stream-count", -1, "for streaming rpc, send this many requests, -1 for infinite")
+	streamIntervalMSecs := flag.Int("stream-interval-msecs", -1, "for streaming rpc, wait this number of milliseconds between requests, -1 for random")
 
 	flag.Parse()
 
@@ -79,17 +84,82 @@ func main() {
 	defer conn.Close()
 	c := pb.NewGreeterClient(conn)
 
-	// Contact the server and print out its response.
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
+	var ctx context.Context
+	var cancel context.CancelFunc
 
-	/* set up the metadata */
-	ctx = metadata.AppendToOutgoingContext(ctx, "X-Tenant-Id", *tenantId)
-
-	r, err := c.SayHello(ctx, &pb.HelloRequest{Name: *name})
-	if err != nil {
-		log.Fatalf("could not greet: %v", err)
+	if !*useStream {
+		// Contact the server and print out its response, but the server should respond in 5 seconds.
+		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+	} else {
+		// streaming RPCs just last forever
+		ctx = context.Background()
 	}
-	
-	log.Printf("Response: %v", protojson.Format(r))
+
+	/* set up the tenant id in the metadata */
+	ctx = metadata.AppendToOutgoingContext(ctx, "X-Tenant-Id", *tenantId)
+	req := &pb.HelloRequest{Name: *name}
+
+	// unary RPC call and exit
+	if !*useStream {
+		r, err := c.SayHello(ctx, req)
+		if err != nil {
+			log.Fatalf("could not greet: %v", err)
+		}
+		log.Printf("Response: %v", protojson.Format(r))
+		return
+	}
+
+	streamInterval := *streamIntervalMSecs
+	total := *streamCount
+
+	// start streaming RPC
+	stream, err := c.StreamingHello(ctx)
+	if err != nil {
+		log.Fatalf("could not start streaming RPC: %v", err.Error())
+	}
+
+	log.Printf("stream: %v, total: %v", stream, total)
+
+	i := 0
+	// send reqs and receive replies -- if streamCount was not set (-1) this is an infinite loop
+	for  {
+
+		if err := stream.Send(req); err != nil {
+			log.Printf("Error sending request: %v", err.Error())
+		}
+
+		// receive the response
+		r := &pb.HelloReply{}
+		err := stream.RecvMsg(r)
+		if err == io.EOF {
+			log.Printf("EOF received")
+			break
+		}
+		
+		if err != nil {
+			log.Printf("Error receiving reply: %v", err.Error())
+			break
+		}
+
+		log.Printf("Response: %v", protojson.Format(r))
+
+		i = i + 1
+		if  total != -1 && i >= total {
+			// not infinite loop and we've reached target number of calls
+			break
+		}
+
+		if *streamIntervalMSecs == -1 {
+			streamInterval = rand.Intn(3000)
+		}
+		log.Printf("Sleeping for %v ms ...", streamInterval)
+		time.Sleep(time.Duration(streamInterval) * time.Millisecond)
+
+	}
+
+	stream.CloseSend()
+
+
+		
 }
