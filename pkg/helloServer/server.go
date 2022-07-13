@@ -2,7 +2,6 @@ package helloserver
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -14,7 +13,6 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 )
@@ -87,18 +85,12 @@ func getHelloReply(ctx context.Context, in *pb.HelloRequest, clientTargetTenantI
 	return result, nil
 }
 
-func (s *HelloServer) validateTenantId(md metadata.MD) (string, error) {
-	if md.Get("X-Tenant-Id") == nil {
-		return "", status.Error(codes.InvalidArgument, "Missing X-Tenant-Id header")
+func (s *HelloServer) validateTenantId(tenantId string) (error) {
+	if !s.ServerTenantConfig.CheckTenantId(tenantId) {
+		return status.Error(codes.InvalidArgument, "Wrong Tenant-Id for instance")
 	}
 
-	clientTargetTenantId := md.Get("X-Tenant-Id")[0]
-	/* check if this tenant is allowed */
-	if !s.ServerTenantConfig.CheckTenantId(clientTargetTenantId) {
-		return "", status.Error(codes.InvalidArgument, "Wrong Tenant-Id for instance")
-	}
-
-	return clientTargetTenantId, nil
+	return nil
 }
 
 // SayHello implements helloworld.GreeterServer
@@ -106,12 +98,12 @@ func (s *HelloServer) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.He
 	p, _ := peer.FromContext(ctx)
 	frontendip := p.Addr.String()
 
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.InvalidArgument, "Unable to retrieve request metadata")
+	clientTargetTenantId, err := tenant.GetTenantId(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	clientTargetTenantId, err := s.validateTenantId(md)
+	err = s.validateTenantId(clientTargetTenantId)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +115,6 @@ func (s *HelloServer) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.He
 		zap.String("name", in.GetName()))
 
 	return getHelloReply(ctx, in, clientTargetTenantId)
-
 }
 
 /* streaming hello ... client sends hellos to us with random intervals and we respond to each one as we receive it until 
@@ -132,16 +123,16 @@ func (s *HelloServer) StreamingHello(stream pb.Greeter_StreamingHelloServer) err
 	p, _ := peer.FromContext(stream.Context())
 	frontendip := p.Addr.String()
 
-	// get the stream header
-	md, ok := metadata.FromIncomingContext(stream.Context())
-	if !ok {
-		return status.Error(codes.InvalidArgument, fmt.Sprintf("[%v] Unable to retrieve request metadata", frontendip))
-	}
-
-	clientTargetTenantId, err := s.validateTenantId(md)
+	clientTargetTenantId, err := tenant.GetTenantId(stream.Context())
 	if err != nil {
 		return err
 	}
+
+	err = s.validateTenantId(clientTargetTenantId)
+	if err != nil {
+		return err
+	}
+
 	logger := ctxzap.Extract(stream.Context())
 	logger.Info("Client opened request stream", 
 		zap.String("clientIp", frontendip), 
@@ -157,7 +148,6 @@ func (s *HelloServer) StreamingHello(stream pb.Greeter_StreamingHelloServer) err
 				zap.String("clientIp", frontendip), 
 				zap.String("tenantId", clientTargetTenantId),
 			)
-
 			break
 		}
 

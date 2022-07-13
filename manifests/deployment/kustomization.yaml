@@ -9,7 +9,7 @@ resources:
 images:
 - name: helloworld-grpc
   newName: gcr.io/jkwng-images/helloworld-grpc
-  newTag: v2.8.0
+  newTag: v2.8.2
 
 configMapGenerator:
 - name: helloworld-grpc-tenant-config
