@@ -26,42 +26,41 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
-	"fmt"
-	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"os"
 
-	gcp "helloworld/pkg/gcp"
 	http_health "helloworld/pkg/healthcheck"
 	tenant "helloworld/pkg/tenant"
 	pb "helloworld/proto/helloworld"
+	helloServer "helloworld/pkg/helloServer"
 
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	grpc_health "google.golang.org/grpc/health/grpc_health_v1"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/peer"
 
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	cmux "github.com/soheilhy/cmux"
 )
 
 const (
 	port = ":50051"
-	defaultVersion = "v1.0.0"
 )
 
 // server is used to implement helloworld.GreeterServer.
 type grpcServer struct {
-	pb.GreeterServer
+	helloServer.HelloServer
 	grpc_health.HealthServer
-
-	serverTenantConfig tenant.TenantConfig
 }
 
 func (s *grpcServer) Check(context.Context, *grpc_health.HealthCheckRequest) (*grpc_health.HealthCheckResponse, error) {
@@ -72,135 +71,16 @@ func (s *grpcServer) Watch(*grpc_health.HealthCheckRequest, grpc_health.Health_W
 	return status.Error(codes.Unimplemented, "unimplemented")
 }
 
-func getHelloReply(ctx context.Context, in *pb.HelloRequest, clientTargetTenantId string) (*pb.HelloReply, error) {
-	host, _ := os.Hostname()
-	zoneStr := gcp.GetMetaData(ctx, "instance/zone")
-	nodeName := gcp.GetMetaData(ctx, "instance/hostname")
-	region := gcp.GetMetaData(ctx, "instance/attributes/cluster-location")
-	clusterName := gcp.GetMetaData(ctx, "instance/attributes/cluster-name")
-	project := gcp.GetMetaData(ctx, "project/project-id")
-
-	version, err := ioutil.ReadFile("version.txt")
-	if err != nil {
-		version = []byte(defaultVersion)
-		log.Printf("<%v> unable to open version file version.txt, using default version %s", clientTargetTenantId, version)
-	}
-
-	result := &pb.HelloReply{
-		Message:  "Hello " + in.GetName(),
-		Version:  string(version),
-		Hostname: host,
-		TenantId: clientTargetTenantId,
-	}
-
-	if zoneStr != nil {
-		result.Zone = *zoneStr
-	}
-
-	if nodeName != nil {
-		result.Nodename = *nodeName
-	}
-
-	if region != nil {
-		result.Region = *region
-	}
-
-	if clusterName != nil {
-		result.Clustername = *clusterName
-	}
-
-	if project != nil {
-		result.Project = *project
-	}
-
-	return result, nil
-}
-
-func (s *grpcServer) validateTenantId(md metadata.MD) (string, error) {
-	if md.Get("X-Tenant-Id") == nil {
-		return "", status.Error(codes.InvalidArgument, "Missing X-Tenant-Id header")
-	}
-
-	clientTargetTenantId := md.Get("X-Tenant-Id")[0]
-	/* check if this tenant is allowed */
-	if !s.serverTenantConfig.CheckTenantId(clientTargetTenantId) {
-		return "", status.Error(codes.InvalidArgument, "Wrong Tenant-Id for instance")
-	}
-
-	return clientTargetTenantId, nil
-}
-
-// SayHello implements helloworld.GreeterServer
-func (s *grpcServer) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
-	p, _ := peer.FromContext(ctx)
-	frontendip := p.Addr.String()
-
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.InvalidArgument, "Unable to retrieve request metadata")
-	}
-
-	clientTargetTenantId, err := s.validateTenantId(md)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Printf("[%v] <%v> Received request: %v", frontendip, clientTargetTenantId, in.GetName())
-
-	return getHelloReply(ctx, in, clientTargetTenantId)
-
-}
-
-/* streaming hello ... client sends hellos to us with random intervals and we respond to each one as we receive it until 
-   the client closes the connection */
-func (s *grpcServer) StreamingHello(stream pb.Greeter_StreamingHelloServer) error {
-	p, _ := peer.FromContext(stream.Context())
-	frontendip := p.Addr.String()
-
-	// get the stream header
-	md, ok := metadata.FromIncomingContext(stream.Context())
-	if !ok {
-		return status.Error(codes.InvalidArgument, fmt.Sprintf("[%v] Unable to retrieve request metadata", frontendip))
-	}
-
-	clientTargetTenantId, err := s.validateTenantId(md)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("[%v] <%v> Client opened request stream", frontendip, clientTargetTenantId)
-
-	for {
-		in, err := stream.Recv()
-
-		if err == io.EOF { 
-			// client closed the connection
-			log.Printf("[%v] <%v> Client closed connection", frontendip, clientTargetTenantId)
-			break
-		}
-
-		if err != nil {
-			log.Printf("[%v] <%v> Error: %v", frontendip, clientTargetTenantId, err.Error())
-			return err
-		}
-		
-		log.Printf("[%v] <%v> Received request: %v", frontendip, clientTargetTenantId, in.GetName())
-		reply, err := getHelloReply(stream.Context(), in, clientTargetTenantId)
-		if err != nil {
-			log.Printf("[%v] <%v> Error: %v", frontendip, clientTargetTenantId, err.Error())
-			return err
-		}
-
-		if err := stream.Send(reply); err != nil {
-			log.Printf("[%v] <%v> Error: %v", frontendip, clientTargetTenantId, err.Error())
-			return err
-		}
-	}
-
-	return nil
-}
 
 func main() {
+	opts := []grpc_zap.Option{}
+
+	zapLogger, err := zap.NewProduction()
+	if err != nil {
+		log.Fatalf("can't initialize zap logger: %v", err)
+	}
+	grpc_zap.ReplaceGrpcLoggerV2(zapLogger)
+	defer zapLogger.Sync()
 
 	tlsCrt := flag.String("crt", "certs/tls.crt", "TLS certificate")
 	tlsKey := flag.String("key", "certs/tls.key", "TLS private key")
@@ -210,10 +90,13 @@ func main() {
 
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		zapLogger.Fatal("failed to listen", 
+			zap.String("error", err.Error()), 
+			zap.String("address", port),
+		)
 	}
 
-	log.Printf("Listening on port: %v", port)
+	zapLogger.Info("Listening on address", zap.String("address", port))
 
 	/* check if grpc needs to listen on TLS */
 	tls := *tlsB
@@ -221,43 +104,81 @@ func main() {
 	if tls {
 		if _, err := os.Stat(*tlsCrt); errors.Is(err, os.ErrNotExist) {
 			tls = false
-			log.Printf("Could not find %v", *tlsCrt)
+			zapLogger.Info("Could not find cert", zap.String("cert", *tlsCrt))
 		}
 
 		if _, err := os.Stat(*tlsKey); errors.Is(err, os.ErrNotExist) {
 			tls = false
-			log.Printf("Could not find %v", *tlsKey)
+			zapLogger.Info("Could not find key", zap.String("key",*tlsKey))
 		}
 	}
 
 	if tls {
-		log.Printf("TLS enabled using cert: %v, private key: %v", *tlsCrt, *tlsKey)
+		zapLogger.Info("TLS enabled", 
+			zap.String("cert", *tlsCrt), 
+			zap.String("key", *tlsKey),
+		)
 		creds, err := credentials.NewServerTLSFromFile(*tlsCrt, *tlsKey)
 		if err != nil {
-			log.Fatalf("Failed to setup TLS: %v", err)
+			zapLogger.Fatal("Failed to setup TLS",
+				zap.String("cert", *tlsCrt), 
+				zap.String("key", *tlsKey),
+				zap.Error(err))
 		}
 
 		grpcOptions = append(grpcOptions, grpc.Creds(creds))
 	}
 
+	// initialize tenant metrics
+	tenantMetrics := tenant.NewTenantMetrics()
+
+	// add interceptors
+	grpcOptions = append (grpcOptions, 
+		grpc_middleware.WithUnaryServerChain(
+			tenantMetrics.TenantMetricsUnaryInterceptor,
+			grpc_prometheus.UnaryServerInterceptor,
+			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
+			grpc_zap.UnaryServerInterceptor(zapLogger, opts...),
+			grpc_recovery.UnaryServerInterceptor(),
+		),
+		grpc_middleware.WithStreamServerChain(
+			tenantMetrics.TenantMetricsStreamInterceptor,
+			grpc_prometheus.StreamServerInterceptor,
+			grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
+			grpc_zap.StreamServerInterceptor(zapLogger, opts...),
+			grpc_recovery.StreamServerInterceptor(),
+		),
+	)
+
 	s := grpc.NewServer(grpcOptions...)
 
 	/* get the tenant config */
-	t := tenant.LoadTenantConfig(*configDir)
+	t, err := tenant.LoadTenantConfig(*configDir)
+	if err != nil {
+		zapLogger.Warn("Error loading tenant config", zap.Error(err))
+	}
 	tenantConfigJSON, _ := json.Marshal(t)
-	log.Printf("Loaded Tenant Config: %v", string(tenantConfigJSON))
+	zapLogger.Info("Loaded Tenant Config", 
+		zap.String("tenantConfigJson", string(tenantConfigJSON)),
+	)
 
 	/* register grpc services */
 	g := &grpcServer{
-		serverTenantConfig: *t,
+		HelloServer: *helloServer.NewHelloServer(*t),
 	}
 
 	pb.RegisterGreeterServer(s, g)
 	grpc_health.RegisterHealthServer(s, g)
 
+	/* reset all prometheus to zero */
+	grpc_prometheus.Register(s)
+
 	/* register http services */
 	h := &http.Server{}
 	http.DefaultServeMux.Handle("/healthz", &http_health.HttpHealthCheckHandler{})
+
+	// Register Prometheus metrics handler.    
+	http.Handle("/metrics", promhttp.Handler())
 
 	m := cmux.New(lis)
 
@@ -271,6 +192,8 @@ func main() {
 	go h.Serve(httpL)
 
 	if err := m.Serve(); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+		zapLogger.Fatal("failed to serve", 
+			zap.Error(err),
+		)
 	}
 }

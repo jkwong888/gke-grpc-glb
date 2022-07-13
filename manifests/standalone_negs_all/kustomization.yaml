@@ -1,5 +1,7 @@
-bases:
+resources:
 - ../standalone_negs_a
 - ../standalone_negs_b
 - ../standalone_negs_c
 - ../standalone_negs_d
+
+

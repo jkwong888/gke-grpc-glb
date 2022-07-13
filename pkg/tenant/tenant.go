@@ -1,11 +1,14 @@
 package tenant
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"strings"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v3"
 )
 
@@ -35,22 +38,21 @@ func makeDefaultTenantConfig() (*TenantConfig) {
 	return &defaultTenantConfig
 }
 
-func LoadTenantConfig(configDir string) (*TenantConfig) {
+func LoadTenantConfig(configDir string) (*TenantConfig, error) {
 	t := &TenantConfig{}
 
 	yamlFile, err := ioutil.ReadFile(fmt.Sprintf("%v/tenant-config.yaml", configDir))
 	if err != nil {
-		log.Printf("Unable to load tenantConfig: %v, accept all tenants", err.Error())
-		return makeDefaultTenantConfig()
+		//log.Printf("Unable to load tenantConfig: %v, accept all tenants", err.Error())
+		return makeDefaultTenantConfig(), fmt.Errorf("unable to load tenantConfig: %v, accept all tenants", err.Error())
 	}
 
 	err = yaml.Unmarshal(yamlFile, t)
 	if err != nil {
-		log.Printf("Could not parse tenantConfig: %v, accept all tenants", err.Error())
-		return makeDefaultTenantConfig()
+		return makeDefaultTenantConfig(), fmt.Errorf("unable to parse tenantConfig: %v, accept all tenants", err.Error())
 	}
 
-	return t
+	return t, nil
 }
 
 func tenantMatches(tenantIdToCheck string, tm TenantMatch) bool {
@@ -116,4 +118,19 @@ func (t *TenantConfig) CheckTenantId(tenantIdToCheck string) bool {
 	}
 
 	return false
+}
+
+func GetTenantId(ctx context.Context) (string, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", status.Error(codes.InvalidArgument, "Unable to retrieve request metadata")
+	}
+
+	if md.Get("X-Tenant-Id") == nil {
+		return "", status.Error(codes.InvalidArgument, "Missing X-Tenant-Id header")
+	}
+
+	clientTargetTenantId := md.Get("X-Tenant-Id")[0]
+
+	return clientTargetTenantId, nil
 }

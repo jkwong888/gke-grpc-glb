@@ -1,0 +1,14 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hellgrpc-scrape
+  labels:
+    name: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: helloworld-grpc
+  namespaceSelector:
+    any: true
+  endpoints:
+    - port: grpc
